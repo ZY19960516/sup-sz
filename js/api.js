@@ -67,11 +67,12 @@ export async function fetchMarineHistory(spot, pastDays) {
 // ---------- Open-Meteo Weather：风 / 阵风 / 降水 / 雷暴 ----------
 export async function fetchWeather(spot) {
   const hourly = [
+    'temperature_2m',  // 气温
     'wind_speed_10m',
     'wind_direction_10m',
     'wind_gusts_10m',
-    'precipitation',
-    'weather_code', // 用于识别雷暴（95/96/99）
+    'precipitation',   // 降雨量 mm/h
+    'weather_code',    // 用于识别雷暴（95/96/99）
   ].join(',');
 
   const params = new URLSearchParams({

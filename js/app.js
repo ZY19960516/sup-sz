@@ -12,14 +12,20 @@ const cardsEl = document.getElementById('cards');
 const bannerEl = document.getElementById('banner');
 const refreshBtn = document.getElementById('refresh');
 const headerSub = document.getElementById('header-sub');
+const dateTabsEl = document.getElementById('date-tabs');
+
+// 当前选中的日期偏移（0=今天，1=明天，2=后天）与最近一次拉到的点位原始数据
+let currentDayOffset = 0;
+let lastSpotDatas = null;
 
 // 主流程
 async function load(useCacheFirst = true) {
   // 先展示缓存（秒开体验），再后台刷新
   if (useCacheFirst) {
     const cached = readCache();
-    if (cached) {
-      renderFromResults(cached.results);
+    if (cached && cached.spotDatas) {
+      lastSpotDatas = cached.spotDatas;
+      renderForDay();
       showBanner(`显示 ${fmtClock(cached.savedAt)} 缓存数据，正在刷新…`, 'offline');
     } else {
       cardsEl.innerHTML = '<div class="loading"><div class="spinner"></div><div style="margin-top:10px">正在获取深圳海况…</div></div>';
@@ -29,19 +35,16 @@ async function load(useCacheFirst = true) {
   try {
     // 并行拉 7 个点位
     const spotDatas = await Promise.all(SPOTS.map((s) => fetchSpotData(s)));
-    const results = spotDatas.map((sd) => ({
-      spotData: sd,
-      evalResult: evaluate(sd),
-    }));
-
-    renderFromResults(results);
-    writeCache(results);
+    lastSpotDatas = spotDatas;
+    renderForDay();
+    writeCache(spotDatas);
     hideBanner();
     headerSub.textContent = `更新于 ${fmtClock(new Date().toISOString())} · 数据为模式预报，非实测`;
   } catch (e) {
     const cached = readCache();
-    if (cached) {
-      renderFromResults(cached.results);
+    if (cached && cached.spotDatas) {
+      lastSpotDatas = cached.spotDatas;
+      renderForDay();
       showBanner(`网络异常，显示 ${fmtClock(cached.savedAt)} 缓存数据`, 'offline');
     } else {
       cardsEl.innerHTML = '<div class="loading">网络异常，暂时无法获取数据。请检查网络后重试。</div>';
@@ -49,21 +52,23 @@ async function load(useCacheFirst = true) {
   }
 }
 
-// 渲染（缓存里存的是精简结构，需重建可用于 UI 的对象）
-function renderFromResults(results) {
+// 按当前选中的日期，对已拉到的原始数据重新评估并渲染（切日期无需重新联网）
+function renderForDay() {
+  if (!lastSpotDatas) return;
+  const results = lastSpotDatas.map((sd) => ({
+    spotData: sd,
+    evalResult: evaluate(sd, currentDayOffset),
+  }));
   renderCards(results, cardsEl);
 }
 
 // ---------- 缓存 ----------
-function writeCache(results) {
+function writeCache(spotDatas) {
   try {
-    // 存完整数据以支持离线看曲线
+    // 只存原始点位数据，evalResult 随所选日期动态计算
     const payload = {
       savedAt: new Date().toISOString(),
-      results: results.map((r) => ({
-        spotData: r.spotData,
-        evalResult: r.evalResult,
-      })),
+      spotDatas,
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
   } catch (e) {
@@ -97,6 +102,20 @@ function fmtClock(iso) {
 
 // ---------- 事件 ----------
 refreshBtn.addEventListener('click', () => load(false));
+
+// 日期切换
+dateTabsEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-day]');
+  if (!btn) return;
+  const day = +btn.dataset.day;
+  if (day === currentDayOffset) return;
+  currentDayOffset = day;
+  // 更新按钮激活态
+  dateTabsEl.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
+  btn.classList.add('active');
+  // 重新评估并渲染
+  renderForDay();
+});
 
 // 网络恢复自动刷新
 window.addEventListener('online', () => load(false));

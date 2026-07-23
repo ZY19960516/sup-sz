@@ -59,13 +59,6 @@ export const SPOTS = [
     lon: 113.9450,
     coastFacing: 225, // 湾内朝西南，内湾浪小
   },
-  {
-    id: 'dongxichong',
-    name: '东西冲',
-    lat: 22.4680,
-    lon: 114.5620,
-    coastFacing: 140, // 朝东南，直面外海涌浪
-  },
 ];
 
 // ---------- 安全阈值（红黄绿分界）----------
@@ -76,12 +69,12 @@ export const THRESHOLDS = {
   waveHeight: { greenMax: 0.5, yellowMax: 0.8 },
   // 涌浪周期（越长的涌浪越危险）
   swellPeriod: { greenMax: 8, yellowMax: 10 },
-  // 平均风速
-  windSpeed: { greenMax: 12, yellowMax: 15 },
-  // 离岸风（把人吹向外海，头号杀手）
-  offshoreWind: { greenMax: 10, yellowMax: 12 },
-  // 阵风绝对值上限
-  gust: { greenMax: 15, yellowMax: 18 },
+  // 平均风速（风力主要作为"谨慎"提醒，红色线抬高，不轻易主导整体判红）
+  windSpeed: { greenMax: 14, yellowMax: 22 },
+  // 离岸风（把人吹向外海，头号杀手，保持严格——这是真正的致命因素）
+  offshoreWind: { greenMax: 10, yellowMax: 14 },
+  // 阵风绝对值上限（阵风比持续风更影响站立，但仍以黄色提醒为主，红色留给极端大风）
+  gust: { greenMax: 15, yellowMax: 24 },
   // 离岸风判定：实际风向与"离岸方向"夹角小于此值即视为离岸风
   offshoreAngleTolerance: 45,
 };

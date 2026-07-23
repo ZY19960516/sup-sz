@@ -2,7 +2,7 @@
 // Service Worker：静态资源离线缓存
 // 数据请求(API)走 network-first，由 app.js 的 localStorage 缓存兜底
 // ============================================================
-const CACHE = 'sup-sz-static-v1';
+const CACHE = 'sup-sz-static-v3';
 
 // 应用外壳静态资源（同源，必须缓存成功）
 const SHELL = [
@@ -14,18 +14,15 @@ const SHELL = [
   './js/config.js',
   './js/logic.js',
   './js/ui.js',
+  './lib/uPlot.iife.min.js',
+  './lib/uPlot.min.css',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
 ];
 
-// 跨域 CDN 资源（尽力缓存，取不到不阻塞安装）
-// 注意：jsdelivr 国内可达性不稳定，故不放进原子的 addAll，
-//       否则一旦取不到会导致整个 SW 安装失败、离线能力全废。
-const CDN = [
-  'https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.min.css',
-  'https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.iife.min.js',
-];
+// uPlot 已改为本地引用，无需 CDN
+const CDN = [];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
