@@ -59,7 +59,7 @@ function renderForDay() {
     spotData: sd,
     evalResult: evaluate(sd, currentDayOffset),
   }));
-  renderCards(results, cardsEl);
+  renderCards(results, cardsEl, currentDayOffset);
 }
 
 // ---------- 缓存 ----------

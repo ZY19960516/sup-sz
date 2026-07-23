@@ -6,14 +6,14 @@ import { TIMELINE, WAVE_MODELS } from './config.js';
 import { fmtWind, knotsToMs, findNowIndex } from './logic.js';
 
 // 渲染全部卡片
-export function renderCards(results, container) {
+export function renderCards(results, container, dayOffset) {
   container.innerHTML = '';
   for (const r of results) {
-    container.appendChild(renderCard(r));
+    container.appendChild(renderCard(r, dayOffset));
   }
 }
 
-function renderCard({ spotData, evalResult }) {
+function renderCard({ spotData, evalResult }, dayOffset) {
   const spot = spotData.spot;
   const ev = evalResult;
   const card = document.createElement('div');
@@ -115,7 +115,7 @@ function renderCard({ spotData, evalResult }) {
       detail.classList.toggle('open');
       if (opening) {
         // 等 CSS 动画完成后再画图，避免容器宽度为 0
-        setTimeout(() => drawChart(spot, spotData, 24, 'wave'), 350);
+        setTimeout(() => drawChart(spot, spotData, dayOffset, 'wave'), 350);
       }
     });
   });
@@ -124,7 +124,7 @@ function renderCard({ spotData, evalResult }) {
   detail.querySelectorAll('[data-seg="metric"] button').forEach((btn) => {
     btn.addEventListener('click', () => {
       setActive(btn);
-      drawChart(spot, spotData, 24, btn.dataset.metric);
+      drawChart(spot, spotData, dayOffset, btn.dataset.metric);
     });
   });
 
@@ -143,8 +143,8 @@ function verdictBadge(level) {
 // 图表实例缓存，避免重复创建
 const chartInstances = {};
 
-// 画时间轴曲线：过去(默认7天) + 未来(hours)，metric = wave|swell|wind
-function drawChart(spot, spotData, forecastHours, metric) {
+// 画时间轴曲线：显示指定日期（dayOffset）的 0-24 点数据，metric = wave|swell|wind
+function drawChart(spot, spotData, dayOffset, metric) {
   const wrapId = `chart-${spot.id}`;
   const wrap = document.getElementById(wrapId);
   if (!wrap) {
@@ -158,7 +158,7 @@ function drawChart(spot, spotData, forecastHours, metric) {
   // 确保容器有宽度，否则 uPlot 会报错
   if (wrap.clientWidth === 0) {
     console.warn('drawChart: 容器宽度为 0，稍后重试', wrapId);
-    setTimeout(() => drawChart(spot, spotData, forecastHours, metric), 100);
+    setTimeout(() => drawChart(spot, spotData, dayOffset, metric), 100);
     return;
   }
 
@@ -179,9 +179,18 @@ function drawChart(spot, spotData, forecastHours, metric) {
   }[metric];
   const values = pickSeries(hourly, field);
 
-  // 时间窗口：过去 pastDaysDefault 天 ~ 未来 forecastHours 小时
-  const startIdx = Math.max(0, nowIdx - TIMELINE.pastDaysDefault * 24);
-  const endIdx = Math.min(times.length - 1, nowIdx + forecastHours);
+  // 计算目标日期的 0 点和 24 点（dayOffset=0 是今天，1 是明天，2 是后天）
+  const now = new Date();
+  const targetDayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset, 0, 0, 0);
+  const targetDayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset, 23, 59, 59);
+
+  // 找到时间窗口对应的数据索引
+  let startIdx = times.findIndex(t => new Date(t) >= targetDayStart);
+  let endIdx = times.findIndex(t => new Date(t) > targetDayEnd);
+
+  if (startIdx === -1) startIdx = 0;
+  if (endIdx === -1) endIdx = times.length - 1;
+  else endIdx = Math.max(0, endIdx - 1); // findIndex 找到的是第一个超过的，往回退一个
 
   const xs = [];
   const ys = [];
@@ -205,6 +214,10 @@ function drawChart(spot, spotData, forecastHours, metric) {
 
   const nowSec = Date.now() / 1000;
   const unit = metric === 'wind' ? 'm/s' : 'm';
+
+  // 判断是否需要画"现在"竖线（仅在今天且当前时刻在图表范围内）
+  const showNowLine = dayOffset === 0 && nowSec >= xs[0] && nowSec <= xs[xs.length - 1];
+
   const opts = {
     width: wrap.clientWidth || 320,
     height: 200,
@@ -226,24 +239,18 @@ function drawChart(spot, spotData, forecastHours, metric) {
       {
         stroke: '#94a3b8',
         grid: { stroke: '#e2e8f033' },
-        // 智能格式化时间轴标签
+        // 时间轴只显示小时（图表只显示当天 0-24 点）
         values: (u, ticks) => ticks.map((t) => {
           const d = new Date(t * 1000);
-          const hoursDiff = (t - nowSec) / 3600;
-          // 未来 24h 内只显示时间(如 14:00)，超过则显示日期+时间
-          if (hoursDiff >= -24 && hoursDiff <= 24) {
-            return `${String(d.getHours()).padStart(2, '0')}:00`;
-          }
-          return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}h`;
+          return `${String(d.getHours()).padStart(2, '0')}:00`;
         }),
         // 减少刻度密度，避免重叠(移动端屏幕窄)
         space: 80, // 刻度间最小像素间距
       },
       { stroke: '#94a3b8', grid: { stroke: '#e2e8f033' } },
     ],
-    // 在"现在"画竖线
     hooks: {
-      draw: [
+      draw: showNowLine ? [
         (u) => {
           const cx = u.valToPos(nowSec, 'x', true);
           const ctx = u.ctx;
@@ -257,7 +264,7 @@ function drawChart(spot, spotData, forecastHours, metric) {
           ctx.stroke();
           ctx.restore();
         },
-      ],
+      ] : [],
       setCursor: [], // 稍后添加
     },
   };
