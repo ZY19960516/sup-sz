@@ -18,6 +18,13 @@ export const QWEATHER = {
 // （陆地坐标取不到浪）。coastFacing = 海岸朝向（度，正北=0，用于判断离岸风）。
 export const SPOTS = [
   {
+    id: 'meisha',
+    name: '大梅沙/小梅沙',
+    lat: 22.5850,
+    lon: 114.3200,
+    coastFacing: 160,
+  },
+  {
     id: 'jiaochangwei',
     name: '较场尾',
     lat: 22.5980,
@@ -51,13 +58,6 @@ export const SPOTS = [
     lat: 22.4780,
     lon: 113.9450,
     coastFacing: 225, // 湾内朝西南，内湾浪小
-  },
-  {
-    id: 'meisha',
-    name: '大梅沙/小梅沙',
-    lat: 22.5850,
-    lon: 114.3200,
-    coastFacing: 160,
   },
   {
     id: 'dongxichong',

@@ -89,7 +89,7 @@ function renderCard({ spotData, evalResult }) {
       <div class="detail-controls">
         <div class="seg" data-seg="forecast">
           ${TIMELINE.forecastOptions.map((h, i) =>
-            `<button data-hours="${h}" class="${i === TIMELINE.forecastOptions.length - 1 ? 'active' : ''}">未来${h}h</button>`
+            `<button data-hours="${h}" class="${h === 24 ? 'active' : ''}">未来${h}h</button>`
           ).join('')}
         </div>
         <div class="seg" data-seg="metric">
@@ -115,7 +115,7 @@ function renderCard({ spotData, evalResult }) {
     el.addEventListener('click', () => {
       const opening = !detail.classList.contains('open');
       detail.classList.toggle('open');
-      if (opening) drawChart(spot, spotData, 72, 'wave');
+      if (opening) drawChart(spot, spotData, 24, 'wave'); // 默认 24h
     });
   });
 
@@ -215,10 +215,18 @@ function drawChart(spot, spotData, forecastHours, metric) {
       {
         stroke: '#94a3b8',
         grid: { stroke: '#e2e8f033' },
+        // 智能格式化时间轴标签
         values: (u, ticks) => ticks.map((t) => {
           const d = new Date(t * 1000);
+          const hoursDiff = (t - nowSec) / 3600;
+          // 未来 24h 内只显示时间(如 14:00)，超过则显示日期+时间
+          if (hoursDiff >= -24 && hoursDiff <= 24) {
+            return `${String(d.getHours()).padStart(2, '0')}:00`;
+          }
           return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}h`;
         }),
+        // 减少刻度密度，避免重叠(移动端屏幕窄)
+        space: 80, // 刻度间最小像素间距
       },
       { stroke: '#94a3b8', grid: { stroke: '#e2e8f033' } },
     ],
