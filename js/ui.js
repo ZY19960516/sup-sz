@@ -3,7 +3,7 @@
 // 依赖 uPlot（通过 CDN 在 index.html 引入，全局 uPlot）
 // ============================================================
 import { TIMELINE, WAVE_MODELS } from './config.js';
-import { fmtWind, knotsToMs, findNowIndex } from './logic.js';
+import { fmtWind, knotsToMs, findNowIndex, dirToText } from './logic.js';
 
 // 渲染全部卡片
 export function renderCards(results, container, dayOffset) {
@@ -37,6 +37,8 @@ function renderCard({ spotData, evalResult }, dayOffset) {
 
   const windKn = m.peakWindKn;
   const windTxt = windKn != null ? fmtWind(windKn) : '--';
+  const windDirTxt = m.windDir != null ? `${dirToText(m.windDir)}风` : '';
+  const windDirTag = windDirTxt ? `<span class="metric">🧭 ${windDirTxt}</span>` : '';
   const offshoreTag = m.offshore ? '<span class="metric warn">⚠️ 离岸风</span>' : '';
 
   const tempTxt = m.temp != null ? `🌡️ ${m.temp.toFixed(0)}℃` : '';
@@ -76,6 +78,7 @@ function renderCard({ spotData, evalResult }, dayOffset) {
       </div>
       <div class="metrics-row">
         <span class="metric">💨 ${windTxt}</span>
+        ${windDirTag}
         ${offshoreTag}
       </div>
       <div class="metrics-row">

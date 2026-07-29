@@ -280,6 +280,7 @@ export function evaluate(spotData, dayOffset = 0) {
   const dayMaxPrecip = Math.max(morning?.maxPrecip ?? 0, afternoon?.maxPrecip ?? 0);
   const repTemp = (morning || afternoon).temp;
   const repWaveConf = (morning || afternoon).waveConf;
+  const repWindDir = (morning || afternoon).windDir;
 
   return {
     level,
@@ -294,6 +295,7 @@ export function evaluate(spotData, dayOffset = 0) {
       maxPrecip: dayMaxPrecip,
       temp: repTemp,
       waveConf: repWaveConf,
+      windDir: repWindDir,
       offshore: (morning?.offshore || afternoon?.offshore) || false,
     },
     fetchedAt: spotData.fetchedAt,
