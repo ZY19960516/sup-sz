@@ -2,7 +2,7 @@
 // Service Worker：静态资源离线缓存
 // 数据请求(API)走 network-first，由 app.js 的 localStorage 缓存兜底
 // ============================================================
-const CACHE = 'sup-sz-static-v5';
+const CACHE = 'sup-sz-static-v6';
 
 // 应用外壳静态资源（同源，必须缓存成功）
 const SHELL = [

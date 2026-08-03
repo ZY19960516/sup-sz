@@ -337,11 +337,15 @@ function bindTouchCursor(u, wrap) {
   over.addEventListener('touchend', () => u.setCursor({ left: -10, top: -10 }));
 }
 
-// 从可能带模式后缀的字段取一条序列（优先基础名，再取首个可用模式）
+// 从可能带模式后缀的字段取一条序列（优先基础名，再取首个"含真实数据"的模式）
+// 注意：某些模式（如 ecmwf_wam025）对深圳涌浪字段整列返回 null，
+// 不能只判断键存在，否则会取到全 null 的序列导致图表空白。
 function pickSeries(hourly, base) {
-  if (hourly[base]) return hourly[base];
+  const hasData = (arr) => Array.isArray(arr) && arr.some((v) => v != null);
+  if (hasData(hourly[base])) return hourly[base];
   for (const m of WAVE_MODELS) {
-    if (hourly[`${base}_${m}`]) return hourly[`${base}_${m}`];
+    const arr = hourly[`${base}_${m}`];
+    if (hasData(arr)) return arr;
   }
   return null;
 }

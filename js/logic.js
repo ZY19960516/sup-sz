@@ -14,6 +14,21 @@ function gradeByMax(value, { greenMax, yellowMax }) {
   return LEVEL.RED;
 }
 
+// 涌浪联合分级：周期反映能量类型，涌高反映实际冲击力，两者结合判断。
+// - 涌高 < ignore：远洋残涌尾巴，水面平缓，无实际危害 → 绿（无视周期）
+// - 否则按周期分级；但要判红须涌高也 >= redMin，否则降为黄（放松过度判红）
+function gradeSwell(period, height, { swellPeriod, swellHeight }) {
+  if (period == null || isNaN(period)) return null;
+  // 涌高太小：即使周期长也不构成威胁
+  if (height != null && height < swellHeight.ignore) return LEVEL.GREEN;
+  const byPeriod = gradeByMax(period, swellPeriod);
+  // 长周期本应判红，但涌高不够大时降为黄
+  if (byPeriod === LEVEL.RED && height != null && height < swellHeight.redMin) {
+    return LEVEL.YELLOW;
+  }
+  return byPeriod;
+}
+
 // 取多个等级中最严重的
 function worst(levels) {
   const order = { green: 0, yellow: 1, red: 2 };
@@ -124,6 +139,7 @@ function evalHour(spotData, idx) {
   const wave = extractWaveConfidence(marine, idx);
   const waveVal = wave ? wave.value : null;
   const swellPeriod = marine?.hourly ? pickModelValue(marine.hourly, 'swell_wave_period', idx) : null;
+  const swellHeight = marine?.hourly ? pickModelValue(marine.hourly, 'swell_wave_height', idx) : null;
   const windKn = wh?.wind_speed_10m?.[idx] ?? null;
   const windDir = wh?.wind_direction_10m?.[idx] ?? null;
   const gust = wh?.wind_gusts_10m?.[idx] ?? null;
@@ -133,16 +149,18 @@ function evalHour(spotData, idx) {
   const thunder = code != null && isThunderstorm(code);
   const offshore = isOffshore(windDir, spot.coastFacing);
 
+  const swellLevel = gradeSwell(swellPeriod, swellHeight, THRESHOLDS);
+
   const levels = [];
   if (waveVal != null) levels.push(gradeByMax(waveVal, THRESHOLDS.waveHeight));
-  if (swellPeriod != null) levels.push(gradeByMax(swellPeriod, THRESHOLDS.swellPeriod));
+  if (swellLevel != null) levels.push(swellLevel);
   if (windKn != null) levels.push(gradeByMax(windKn, THRESHOLDS.windSpeed));
   if (gust != null) levels.push(gradeByMax(gust, THRESHOLDS.gust));
   if (offshore && windKn != null) levels.push(gradeByMax(windKn, THRESHOLDS.offshoreWind));
   let level = worst(levels);
   if (thunder) level = LEVEL.RED;
 
-  return { idx, level, wave, waveVal, swellPeriod, windKn, windDir, gust, temp, precip, thunder, offshore };
+  return { idx, level, wave, waveVal, swellPeriod, swellHeight, swellLevel, windKn, windDir, gust, temp, precip, thunder, offshore };
 }
 
 // 把一组（连续）下标格式化成小时段文字，如 "14-17点"、"15点"
@@ -174,7 +192,7 @@ function evalPeriod(spotData, indices, times) {
   const waveBadIdx = hours.filter((h) => h.waveVal != null && gradeByMax(h.waveVal, THRESHOLDS.waveHeight) !== LEVEL.GREEN).map((h) => h.idx);
   const windBadIdx = hours.filter((h) => h.windKn != null && gradeByMax(h.windKn, THRESHOLDS.windSpeed) !== LEVEL.GREEN).map((h) => h.idx);
   const gustBadIdx = hours.filter((h) => h.gust != null && gradeByMax(h.gust, THRESHOLDS.gust) !== LEVEL.GREEN).map((h) => h.idx);
-  const swellBadIdx = hours.filter((h) => h.swellPeriod != null && gradeByMax(h.swellPeriod, THRESHOLDS.swellPeriod) !== LEVEL.GREEN).map((h) => h.idx);
+  const swellBadIdx = hours.filter((h) => h.swellLevel != null && h.swellLevel !== LEVEL.GREEN).map((h) => h.idx);
   const offshoreIdx = hours.filter((h) => h.offshore && h.windKn != null && gradeByMax(h.windKn, THRESHOLDS.offshoreWind) !== LEVEL.GREEN).map((h) => h.idx);
 
   const reasons = [];
@@ -184,8 +202,11 @@ function evalPeriod(spotData, indices, times) {
     reasons.push(`浪高 ${peak.toFixed(1)}m（${fmtHourRanges(times, waveBadIdx)}）`);
   }
   if (swellBadIdx.length) {
-    const peak = Math.max(...hours.filter((h) => swellBadIdx.includes(h.idx)).map((h) => h.swellPeriod));
-    reasons.push(`涌浪周期 ${peak.toFixed(0)}s 偏长（${fmtHourRanges(times, swellBadIdx)}）`);
+    const badHours = hours.filter((h) => swellBadIdx.includes(h.idx));
+    const peakP = Math.max(...badHours.map((h) => h.swellPeriod));
+    const peakH = Math.max(...badHours.map((h) => (h.swellHeight == null ? -Infinity : h.swellHeight)));
+    const hTxt = isFinite(peakH) ? `、涌高 ${peakH.toFixed(1)}m` : '';
+    reasons.push(`涌浪周期 ${peakP.toFixed(0)}s 偏长${hTxt}（${fmtHourRanges(times, swellBadIdx)}）`);
   }
   if (windBadIdx.length) {
     const peak = Math.max(...hours.filter((h) => windBadIdx.includes(h.idx)).map((h) => h.windKn));

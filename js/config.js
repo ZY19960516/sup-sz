@@ -67,8 +67,12 @@ export const SPOTS = [
 export const THRESHOLDS = {
   // 总有效浪高
   waveHeight: { greenMax: 0.5, yellowMax: 0.8 },
-  // 涌浪周期（越长的涌浪越危险）
-  swellPeriod: { greenMax: 8, yellowMax: 10 },
+  // 涌浪周期（越长的涌浪越危险）——红线由 10s 抬高到 11s，适当放松
+  swellPeriod: { greenMax: 8, yellowMax: 11 },
+  // 涌浪高度联合判定：涌高 < ignore 视为远洋残涌尾巴，水面平缓无危害，
+  // 无论周期多长都不判危险；长周期(超 yellowMax)要判红，涌高须达到 redMin，
+  // 否则降为黄。避免"周期长但涌很小"被过度判红。
+  swellHeight: { ignore: 0.3, redMin: 0.6 },
   // 平均风速（风力主要作为"谨慎"提醒，红色线抬高，不轻易主导整体判红）
   windSpeed: { greenMax: 14, yellowMax: 22 },
   // 离岸风（把人吹向外海，头号杀手，保持严格——这是真正的致命因素）
